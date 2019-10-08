@@ -19,13 +19,13 @@ import os.path
 
 
 class Measure:
-    
+
     """
-    Base measurement class        
+    Base measurement class
     """
-    
+
     def __init__(self,*args,**kwargs):
-        
+
         # convert times to nsamples
         self.delta = self.data.delta
         self.units = self.data.units
@@ -67,7 +67,7 @@ class Measure:
             else:
                 raise TypeError('degs must be an integer or numpy array')
         self.__degs = degs
-        
+
         # self.lags, self.degs = np.meshgrid(self.__slags * self.delta, self.__degs)
         self.degs, self.lags = np.meshgrid(self.__degs, self.__slags * self.delta)
 
@@ -92,39 +92,39 @@ class Measure:
             samps = core.time2samps(lag, self.delta, 'even')
             self.__srccorr = (deg, samps)
             self.srccorr = kwargs['srccorr']
-                
+
     # Common methods
-    
+
     def gridsearch(self, func, **kwargs):
-        
+
         """
         Grid search for splitting parameters applied to data using the function defined in func
-        rcvcorr = receiver correction parameters in tuple (fast,lag) 
-        srccorr = source correction parameters in tuple (fast,lag) 
+        rcvcorr = receiver correction parameters in tuple (fast,lag)
+        srccorr = source correction parameters in tuple (fast,lag)
         """
-        
+
         # avoid using "dots" in loops for performance
         rotate = core.rotate
         lag = core.lag
         chop = core.chop
         unsplit = core.unsplit
-        
+
         # ensure trace1 at zero angle
         copy = self.data.copy()
         copy.rotateto(0)
         x, y = copy.x, copy.y
-        
+
         # pre-apply receiver correction
         if 'rcvcorr' in kwargs:
             rcvphi, rcvlag = self.__rcvcorr
             x, y = unsplit(x, y, rcvphi, rcvlag)
-         
-        ######################                  
+
+        ######################
         # inner loop function
         ######################
-    
-        # source correction  
-        
+
+        # source correction
+
         if 'srccorr' in kwargs:
             srcphi, srclag = self.__srccorr
             def srccorr(x, y, ang):
@@ -133,7 +133,7 @@ class Measure:
         else:
             def srccorr(x, y, ang):
                 return x, y
-                
+
         # rotate to polaristation (needed for tranverse min)
         if 'mode' in kwargs and kwargs['mode'] == 'rotpol':
             pol = self.data.pol
@@ -144,8 +144,8 @@ class Measure:
         else:
             def rotpol(x, y, ang):
                 return x, y
-        
-        # actual inner loop function   
+
+        # actual inner loop function
         def getout(x, y, ang, shift):
             # remove shift
             x, y = lag(x, y, -shift)
@@ -154,45 +154,45 @@ class Measure:
             x, y = rotpol(x, y, ang)
             return func(x, y)
 
-                    
+
         # Do the grid search
         prerot = [ (rotate(x, y, ang), ang) for ang in self.__degs ]
-        
+
         out = [ [ getout(data[0], data[1], ang, shift) for shift in self.__slags ]
                 for (data,ang) in prerot  ]
-                               
+
         return out
-        
+
     def gridsearch3d(self, func, **kwargs):
-        
+
         """
         Grid search for splitting parameters applied to data using the function defined in func
-        rcvcorr = receiver correction parameters in tuple (fast,lag) 
-        srccorr = source correction parameters in tuple (fast,lag) 
+        rcvcorr = receiver correction parameters in tuple (fast,lag)
+        srccorr = source correction parameters in tuple (fast,lag)
         """
-        
+
         # avoid using "dots" in loops for performance
         rotate = core3d.rotate
         lag = core3d.lag
         chop = core3d.chop
         unsplit = core3d.unsplit
-        
+
         # ensure trace1 at zero angle
         copy = self.data.copy()
         copy.rotate2ray()
         x, y, z = copy.x, copy.y, copy.z
-        
+
         # pre-apply receiver correction
         if 'rcvcorr' in kwargs:
             rcvphi, rcvlag = self.__rcvcorr
             x, y, z = unsplit(x, y, z, rcvphi, rcvlag)
-                            
-        ######################                  
+
+        ######################
         # inner loop function
         ######################
-    
-        # source correction  
-        
+
+        # source correction
+
         if 'srccorr' in kwargs:
             srcphi, srclag = self.__srccorr
             def srccorr(x, y, z, ang):
@@ -201,7 +201,7 @@ class Measure:
         else:
             def srccorr(x, y, z, ang):
                 return x, y, z
-                
+
         # rotate to polaristation (needed for tranverse min)
         if 'mode' in kwargs and kwargs['mode'] == 'rotpol':
             pol = self.data.pol
@@ -212,8 +212,8 @@ class Measure:
         else:
             def rotpol(x, y, z, ang):
                 return x, y, z
-        
-        # actual inner loop function   
+
+        # actual inner loop function
         def getout(x, y, z, ang, shift):
             # remove shift
             x, y, z = lag(x, y, z, -shift)
@@ -221,20 +221,20 @@ class Measure:
             x, y, z = chop(x, y, z, window=self.data.window)
             x, y, z = rotpol(x, y, z, ang)
             return func(x, y, z)
-                    
+
         # Do the grid search
         prerot = [ (rotate(x, y, z, ang), ang) for ang in self.__degs ]
-        
+
         out = [ [ getout(data[0], data[1], data[2], ang, shift) for shift in self.__slags ]
                 for (data,ang) in prerot  ]
-                               
-        return out
-            
 
-            
-    # METHODS 
-    #---------    
-                
+        return out
+
+
+
+    # METHODS
+    #---------
+
     # def report(self,fname=None,**kwargs):
     #     """
     #     Report to stdout or to a file.
@@ -289,28 +289,28 @@ class Measure:
     #
     #     # if file exists
     #     # exists append
-    
 
-    
+
+
     def srcpol(self):
         # recover source polarisation
         return self.data_corr().get_pol()
-        
+
     def snr(self):
         """Restivo and Helffrich (1999) signal to noise ratio"""
         d = self.srcpoldata_corr().chop()
         return core.snrRH(d.x,d.y)
-                
+
     # possibly useful rotations
-    
-    def data_corr(self):        
-        # copy data     
+
+    def data_corr(self):
+        # copy data
         data_corr = self.data.copy()
-        # rcv side correction     
+        # rcv side correction
         if self.rcvcorr is not None:
-            data_corr.unsplit(*self.rcvcorr)    
+            data_corr.unsplit(*self.rcvcorr)
         # target layer correction
-        data_corr.unsplit(self.fast,self.lag)  
+        data_corr.unsplit(self.fast,self.lag)
         # src side correction
         if self.srccorr is not None:
             data_corr.unsplit(*self.srccorr)
@@ -319,15 +319,15 @@ class Measure:
     def srcpoldata(self):
         srcpoldata = self.data.copy()
         srcpoldata.rotateto(self.srcpol())
-        srcpoldata.set_labels(['srcpol','trans','ray'])
+        srcpoldata.set_labels(['R','T','ray'])
         return srcpoldata
-        
+
     def srcpoldata_corr(self):
-        srcpoldata_corr = self.data_corr()        
+        srcpoldata_corr = self.data_corr()
         srcpoldata_corr.rotateto(self.srcpol())
-        srcpoldata_corr.set_labels(['srcpol','trans','ray'])
+        srcpoldata_corr.set_labels(['R','T','ray'])
         return srcpoldata_corr
-        
+
     def fastdata(self):
         """Plot fast/slow data."""
         fastdata = self.data.copy()
@@ -340,14 +340,14 @@ class Measure:
         fastdata_corr.rotateto(self.fast)
         fastdata_corr.set_labels(['fast','slow','ray'])
         return fastdata_corr
-            
+
     # F-test utilities
-    
+
     def ndf(self):
         """Number of degrees of freedom."""
         d = self.srcpoldata_corr().chop()
         return core.ndf(d.y)
-    
+
     def get_errors(self,surftype=None):
         """
         Return dfast and dtlag.
@@ -384,96 +384,100 @@ class Measure:
         # shortest line that contains ALL true values is then:
         lengthTrue = fastbool.size - lengthFalse
         fdfast = lengthTrue * fast_step * 0.25
-
+        # print(fdfast,fdlag)
         # return
-        return fdfast, fdlag 
-        
-        
+        return fdfast, fdlag
+
+
     # "squashed" profiles
-    
+
     def fastprofile(self):
         surf = (self.lam1-self.lam2)/self.lam2
         surf = surf / surf.sum()
         return np.sum(surf, axis=0)
-        
+
     def lagprofile(self):
         surf = (self.lam1-self.lam2)/self.lam2
         surf = surf / surf.sum()
         return np.sum(surf, axis=1)
-    
 
-    
+
+
     # Output
-    
+
     # def report(self):
     #     """
     #     Report the mesurement in tabular form.
     #     """
     #     toprin
-        
-        
-    # I/O stuff  
+
+
+    # I/O stuff
 
     def save(self,filename):
         """
         Save Measurement for future referral
         """
         io.save(self,filename)
-                       
+
     def copy(self):
-        return io.copy(self)  
-            
-    
+        return io.copy(self)
+
+
+
     # Plotting
-        
+
     def _psurf(self,ax,**kwargs):
         """
         Plot an error surface.
-    
+
         **kwargs
         - cmap = 'magma'
         - vals = (M.lam1-M.lam2) / M.lam2
         - ax = None (creates new)
         """
-    
+        #set color of contour Accent, Accent_r, Blues, Blues_r, BrBG, BrBG_r, BuGn, BuGn_r, BuPu, BuPu_r, CMRmap, CMRmap_r, Dark2, Dark2_r, GnBu, GnBu_r, Greens, Greens_r, Greys, Greys_r, OrRd, OrRd_r, Oranges, Oranges_r, PRGn, PRGn_r, Paired, Paired_r, Pastel1, Pastel1_r, Pastel2, Pastel2_r, PiYG, PiYG_r, PuBu, PuBuGn, PuBuGn_r, PuBu_r, PuOr, PuOr_r, PuRd, PuRd_r, Purples, Purples_r, RdBu, RdBu_r, RdGy, RdGy_r, RdPu, RdPu_r, RdYlBu, RdYlBu_r, RdYlGn, RdYlGn_r, Reds, Reds_r, Set1, Set1_r, Set2, Set2_r, Set3, Set3_r, Spectral, Spectral_r, Wistia, Wistia_r, YlGn, YlGnBu, YlGnBu_r, YlGn_r, YlOrBr, YlOrBr_r, YlOrRd, YlOrRd_r, afmhot, afmhot_r, autumn, autumn_r, binary, binary_r, bone, bone_r, brg, brg_r, bwr, bwr_r, cividis, cividis_r, cool, cool_r, coolwarm, coolwarm_r, copper, copper_r, cubehelix, cubehelix_r, flag, flag_r, gist_earth, gist_earth_r, gist_gray, gist_gray_r, gist_heat, gist_heat_r, gist_ncar, gist_ncar_r, gist_rainbow, gist_rainbow_r, gist_stern, gist_stern_r, gist_yarg, gist_yarg_r, gnuplot, gnuplot2, gnuplot2_r, gnuplot_r, gray, gray_r, hot, hot_r, hsv, hsv_r, inferno, inferno_r, jet, jet_r, magma, magma_r, nipy_spectral, nipy_spectral_r, ocean, ocean_r, pink, pink_r, plasma, plasma_r, prism, prism_r, rainbow, rainbow_r, seismic, seismic_r, spring, spring_r, summer, summer_r, tab10, tab10_r, tab20, tab20_r, tab20b, tab20b_r, tab20c, tab20c_r, terrain, terrain_r, twilight, twilight_r, twilight_shifted, twilight_shifted_r, viridis, viridis_r, winter, winter_r
         if 'cmap' not in kwargs:
-            kwargs['cmap'] = 'magma'
-    
+            kwargs['cmap'] = 'Greys'
+
         if 'vals' not in kwargs:
             kwargs['vals'] = (self.lam1-self.lam2) / self.lam2
-            
+
         # error surface
         cax = ax.contourf(self.lags,self.degs,kwargs['vals'],26,cmap=kwargs['cmap'])
         cbar = plt.colorbar(cax)
         ax.set_ylabel(r'Fast Direction ($^\circ$)')
         ax.set_xlabel('Delay Time (' + self.units + ')')
-        
+
         # confidence region
         if 'conf95' in kwargs and kwargs['conf95'] == True:
             ax.contour(self.lags,self.degs,self.errsurf,levels=[self.conf_95()])
-            
+
         # marker
         if 'marker' in kwargs and kwargs['marker'] == True:
             ax.errorbar(self.lag,self.fast,xerr=self.dlag,yerr=self.dfast)
 
         ax.set_xlim([self.lags[0,0], self.lags[-1,0]])
         ax.set_ylim([self.degs[0,0], self.degs[0,-1]])
-    
+
         # optional title
         if 'title' in kwargs:
-            ax.set_title(kwargs['title']) 
-            
+            ax.set_title(kwargs['title'])
+
         # add info in text box
         if 'info' in kwargs and kwargs['info'] == True:
             textstr = '$\phi=%.1f\pm%.1f$\n$\delta t=%.2f\pm%.2f$'%\
                         (self.fast,self.dfast,self.lag,self.dlag)
+            # print(self.fast,self.dfast,self.lag,self.dlag)
             # place a text box in upper left in axes coords
             props = dict(boxstyle='round', facecolor='white', alpha=0.5)
             ax.text(0.6, 0.95, textstr, transform=ax.transAxes, fontsize=12,
                     verticalalignment='top', bbox=props)
-                    
+
         return ax
-        
+    def get_measurements(self):
+        return self.fast,self.dfast,self.lag,self.dlag
+
     def plot_profiles(self,**kwargs):
         # Error analysis
         fig,ax = plt.subplots(2)
@@ -496,7 +500,7 @@ class Measure:
 
 
     # Comparison
-    
+
     def __eq__(self, other) :
         # check same class
         if self.__class__ != other.__class__: return False
@@ -507,6 +511,3 @@ class Measure:
             if not np.all( self.__dict__[key] == other.__dict__[key]): return False
         # if reached here then the same
         return True
-        
-
-        
